@@ -2,9 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createReceivableFor } from "@/lib/receivables";
 import type { OwnerType } from "@/types/database";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+// Un gasto fijo no tiene fin, así que se proyecta con este margen de meses.
+const FIXED_EXPENSE_MONTHS_AHEAD = 24;
 
 function firstOfMonth(dateStr: string, offsetMonths = 0) {
   const [y, m] = dateStr.split("-").map(Number);
@@ -44,56 +48,6 @@ async function resolveCategoryId(
   return created?.id ?? null;
 }
 
-// Crea un receivable + su/s cuota/s para una persona, a partir de un gasto.
-// Se usa tanto para "de alguien" (una persona) como para dividir un
-// "compartido" entre varias (una llamada por persona, cada una con su parte).
-async function createReceivableFor(
-  supabase: SupabaseServerClient,
-  params: {
-    userId: string;
-    personId: string;
-    cardId: string | null;
-    categoryId: string | null;
-    sourceTransactionId: string | null;
-    description: string;
-    installmentAmount: number;
-    totalInstallments: number;
-    startDate: string;
-  },
-) {
-  const { data: receivable, error: receivableError } = await supabase
-    .from("receivables")
-    .insert({
-      user_id: params.userId,
-      person_id: params.personId,
-      card_id: params.cardId,
-      category_id: params.categoryId,
-      source_transaction_id: params.sourceTransactionId,
-      description: params.description,
-      installment_amount: params.installmentAmount,
-      total_installments: params.totalInstallments,
-      start_month: firstOfMonth(params.startDate),
-    })
-    .select("id")
-    .single();
-  if (receivableError) console.error("createReceivableFor receivable error:", receivableError);
-
-  const chargeRows = Array.from({ length: params.totalInstallments }, (_, i) => ({
-    user_id: params.userId,
-    receivable_id: receivable?.id,
-    person_id: params.personId,
-    description: params.description,
-    amount: params.installmentAmount,
-    due_month: firstOfMonth(params.startDate, i),
-    installment_number: i + 1,
-    installment_total: params.totalInstallments,
-    status: "pending" as const,
-  }));
-
-  const { error: chargesError } = await supabase.from("receivable_charges").insert(chargeRows);
-  if (chargesError) console.error("createReceivableFor charges error:", chargesError);
-}
-
 export async function createTransaction(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -111,8 +65,13 @@ export async function createTransaction(formData: FormData) {
   const personId = ownerType === "person" ? String(formData.get("person_id") ?? "") || null : null;
   const sharedPersonIds =
     ownerType === "shared" ? formData.getAll("shared_person_ids").map(String).filter(Boolean) : [];
-  const isInstallment = formData.get("is_installment") === "on";
-  const totalInstallments = isInstallment ? Number(formData.get("total_installments") ?? 1) : 1;
+  const isFixed = formData.get("is_fixed") === "on";
+  const isInstallment = !isFixed && formData.get("is_installment") === "on";
+  const totalInstallments = isFixed
+    ? FIXED_EXPENSE_MONTHS_AHEAD
+    : isInstallment
+      ? Number(formData.get("total_installments") ?? 1)
+      : 1;
 
   if (!description || !amount || !transactionDate) return;
 
@@ -121,7 +80,7 @@ export async function createTransaction(formData: FormData) {
 
   let firstTransactionId: string | null = null;
 
-  if (!isInstallment || totalInstallments <= 1) {
+  if (totalInstallments <= 1) {
     const { data: inserted, error } = await supabase
       .from("transactions")
       .insert({
@@ -155,10 +114,13 @@ export async function createTransaction(formData: FormData) {
         installment_amount: amount,
         total_installments: totalInstallments,
         start_month: statementMonth,
+        is_fixed: isFixed,
       })
       .select("id")
       .single();
 
+    // Un gasto fijo no es una compra en cuotas: se repite todos los meses, así
+    // que no lleva numeración de cuota (queda en null y se marca is_fixed).
     const rows = Array.from({ length: totalInstallments }, (_, i) => ({
       user_id: user.id,
       card_id: cardId,
@@ -170,11 +132,12 @@ export async function createTransaction(formData: FormData) {
       amount,
       transaction_date: i === 0 ? transactionDate : addMonths(transactionDate, i),
       statement_month: firstOfMonth(transactionDate, i),
-      installment_number: i + 1,
-      installment_total: totalInstallments,
+      installment_number: isFixed ? null : i + 1,
+      installment_total: isFixed ? null : totalInstallments,
       owner_type: ownerType,
       status: i === 0 ? "confirmed" : "projected",
       source: "manual",
+      is_fixed: isFixed,
     }));
 
     const { data: insertedRows } = await supabase.from("transactions").insert(rows).select("id");

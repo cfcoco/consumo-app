@@ -42,6 +42,7 @@ export interface InstallmentSeries {
   installment_amount: number;
   total_installments: number;
   start_month: string;
+  is_fixed: boolean;
   created_at: string;
 }
 
@@ -63,6 +64,7 @@ export interface Transaction {
   owner_type: OwnerType;
   status: TransactionStatus;
   source: TransactionSource;
+  is_fixed: boolean;
   created_at: string;
 }
 
@@ -105,5 +107,6 @@ export interface ReceivableCharge {
   installment_total: number;
   status: ChargeStatus;
   collected_at: string | null;
+  note: string | null;
   created_at: string;
 }

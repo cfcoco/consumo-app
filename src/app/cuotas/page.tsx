@@ -46,6 +46,16 @@ export default async function CuotasPage() {
   const activeSeries = ((series as InstallmentSeries[] | null) ?? []).filter(
     (s) => (remainingBySeries.get(s.id) ?? 0) > 0,
   );
+  const installmentSeries = activeSeries.filter((s) => !s.is_fixed);
+  const fixedSeries = activeSeries.filter((s) => s.is_fixed);
+  const fixedMonthlyTotal = fixedSeries.reduce((sum, s) => sum + Number(s.installment_amount), 0);
+
+  const ownerLabel = (s: InstallmentSeries) =>
+    s.owner_type === "mine"
+      ? "Mío"
+      : s.owner_type === "shared"
+        ? "Compartido"
+        : (peopleById.get(s.person_id ?? "")?.name ?? "Persona");
 
   return (
     <div className="space-y-8">
@@ -72,7 +82,9 @@ export default async function CuotasPage() {
         )}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-neutral-700">Compras en cuotas</h2>
+        <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
         <table className="w-full text-sm">
           <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
             <tr>
@@ -85,7 +97,7 @@ export default async function CuotasPage() {
             </tr>
           </thead>
           <tbody>
-            {activeSeries.map((s) => {
+            {installmentSeries.map((s) => {
               const remaining = remainingBySeries.get(s.id) ?? 0;
               return (
                 <tr key={s.id} className="border-t border-neutral-100">
@@ -93,13 +105,7 @@ export default async function CuotasPage() {
                   <td className="px-4 py-2 text-neutral-500">
                     {s.card_id ? (cardsById.get(s.card_id)?.name ?? "—") : "Otro gasto"}
                   </td>
-                  <td className="px-4 py-2 text-neutral-500">
-                    {s.owner_type === "mine"
-                      ? "Mío"
-                      : s.owner_type === "shared"
-                        ? "Compartido"
-                        : (peopleById.get(s.person_id ?? "")?.name ?? "Persona")}
-                  </td>
+                  <td className="px-4 py-2 text-neutral-500">{ownerLabel(s)}</td>
                   <td className="px-4 py-2 text-right">{money(Number(s.installment_amount))}</td>
                   <td className="px-4 py-2 text-right">
                     {remaining}/{s.total_installments}
@@ -110,7 +116,7 @@ export default async function CuotasPage() {
                 </tr>
               );
             })}
-            {!activeSeries.length && (
+            {!installmentSeries.length && (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-neutral-400">
                   No tenés compras en cuotas activas.
@@ -119,6 +125,56 @@ export default async function CuotasPage() {
             )}
           </tbody>
         </table>
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold text-neutral-700">Gastos fijos</h2>
+          {!!fixedSeries.length && (
+            <p className="text-sm text-neutral-500">
+              {money(fixedMonthlyTotal)} por mes
+            </p>
+          )}
+        </div>
+        <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+          <table className="w-full text-sm">
+            <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
+              <tr>
+                <th className="px-4 py-2">Descripción</th>
+                <th className="px-4 py-2">Tarjeta</th>
+                <th className="px-4 py-2">De quién</th>
+                <th className="px-4 py-2 text-right">Monto mensual</th>
+                <th className="px-4 py-2 text-right">Proyectado hasta</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fixedSeries.map((s) => {
+                const remaining = remainingBySeries.get(s.id) ?? 0;
+                return (
+                  <tr key={s.id} className="border-t border-neutral-100">
+                    <td className="px-4 py-2 font-medium">{s.description}</td>
+                    <td className="px-4 py-2 text-neutral-500">
+                      {s.card_id ? (cardsById.get(s.card_id)?.name ?? "—") : "Otro gasto"}
+                    </td>
+                    <td className="px-4 py-2 text-neutral-500">{ownerLabel(s)}</td>
+                    <td className="px-4 py-2 text-right">{money(Number(s.installment_amount))}</td>
+                    <td className="px-4 py-2 text-right text-neutral-500">
+                      {remaining} mes{remaining !== 1 ? "es" : ""} más
+                    </td>
+                  </tr>
+                );
+              })}
+              {!fixedSeries.length && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-neutral-400">
+                    No tenés gastos fijos cargados.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -211,10 +211,17 @@ export default async function GastosPage({
                 <td className="px-4 py-2 text-neutral-500">{formatDate(t.transaction_date)}</td>
                 <td className="px-4 py-2 font-medium">
                   {t.description}
-                  {t.installment_number && t.installment_total && (
-                    <span className="ml-1 text-xs font-normal text-neutral-400">
-                      {t.installment_number}/{t.installment_total}
+                  {t.is_fixed ? (
+                    <span className="ml-1 rounded bg-sky-50 px-1 text-xs font-normal text-sky-700">
+                      Fijo
                     </span>
+                  ) : (
+                    t.installment_number &&
+                    t.installment_total && (
+                      <span className="ml-1 text-xs font-normal text-neutral-400">
+                        {t.installment_number}/{t.installment_total}
+                      </span>
+                    )
                   )}
                   {t.raw_description && (
                     <p className="text-xs font-normal text-neutral-400">{t.raw_description}</p>

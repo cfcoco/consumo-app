@@ -15,14 +15,18 @@ export function GastoForm({
 }) {
   const [ownerType, setOwnerType] = useState<"mine" | "shared" | "person">("mine");
   const [isInstallment, setIsInstallment] = useState(false);
+  const [isFixed, setIsFixed] = useState(false);
   const [amount, setAmount] = useState("");
   const [totalInstallments, setTotalInstallments] = useState(2);
+
+  const chargeInstallmentsDefault = isInstallment ? totalInstallments : 1;
 
   return (
     <form
       action={async (formData) => {
         await createTransaction(formData);
         setIsInstallment(false);
+        setIsFixed(false);
         setOwnerType("mine");
         setAmount("");
         setTotalInstallments(2);
@@ -66,7 +70,7 @@ export function GastoForm({
 
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-neutral-600">
-          {isInstallment ? "Monto por cuota" : "Monto"}
+          {isInstallment ? "Monto por cuota" : isFixed ? "Monto mensual" : "Monto"}
         </label>
         <input
           name="amount"
@@ -160,10 +164,29 @@ export function GastoForm({
           name="is_installment"
           type="checkbox"
           checked={isInstallment}
-          onChange={(e) => setIsInstallment(e.target.checked)}
+          onChange={(e) => {
+            setIsInstallment(e.target.checked);
+            if (e.target.checked) setIsFixed(false);
+          }}
         />
         <label htmlFor="is_installment" className="text-xs font-medium text-neutral-600">
           En cuotas
+        </label>
+      </div>
+
+      <div className="flex items-center gap-2 pb-1.5">
+        <input
+          id="is_fixed"
+          name="is_fixed"
+          type="checkbox"
+          checked={isFixed}
+          onChange={(e) => {
+            setIsFixed(e.target.checked);
+            if (e.target.checked) setIsInstallment(false);
+          }}
+        />
+        <label htmlFor="is_fixed" className="text-xs font-medium text-neutral-600">
+          Gasto fijo (todos los meses)
         </label>
       </div>
 
@@ -197,11 +220,11 @@ export function GastoForm({
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-neutral-600">Cuotas a cobrarle</label>
             <input
-              key={`charge-installments-${isInstallment ? totalInstallments : 1}`}
+              key={`charge-installments-${chargeInstallmentsDefault}`}
               name="charge_installments"
               type="number"
               min={1}
-              defaultValue={isInstallment ? totalInstallments : 1}
+              defaultValue={chargeInstallmentsDefault}
               className="w-24 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-sm"
             />
           </div>
