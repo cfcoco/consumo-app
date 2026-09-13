@@ -173,6 +173,45 @@ export function parseBbva(lines: string[]): ParsedStatement {
   return { charges, nextClosingDay, nextDueDay };
 }
 
-export function parseStatement(format: "bna_bancor" | "bbva", lines: string[]): ParsedStatement {
-  return format === "bbva" ? parseBbva(lines) : parseBnaBancor(lines);
+// Naranja X: DD/MM/YY <Naranja X|NX Visa> <cupon> DESCRIPCION [NN/NN|Zeta|Deb.Aut.|01] monto
+export function parseNaranja(lines: string[]): ParsedStatement {
+  const charges: ParsedCharge[] = [];
+  const lineRegex =
+    /^(\d{2})\/(\d{2})\/(\d{2})\s+(?:Naranja X|NX Visa)\s+\S+\s+(.+?)\s+(?:(\d{1,2})\/(\d{1,2})|Zeta|Deb\.Aut\.|01)\s+([\d.]+,\d{2})(?:\s+[\d.]+,\d{2})?$/;
+
+  for (const line of lines) {
+    if (/^\*|INTERES|COMISI[ÓO]N|IVA|PERCEP/i.test(line)) continue;
+    const m = line.match(lineRegex);
+    if (!m) continue;
+
+    const [, dd, mm, yy, description, instN, instT, amountStr] = m;
+    const year = twoDigitYear(yy);
+    charges.push({
+      date: `${year}-${mm}-${dd}`,
+      rawDescription: description.trim(),
+      installmentNumber: instN ? Number(instN) : null,
+      installmentTotal: instT ? Number(instT) : null,
+      amountArs: parseAmount(amountStr),
+    });
+  }
+
+  let nextClosingDay: number | null = null;
+  let nextDueDay: number | null = null;
+  for (const line of lines) {
+    const closing = line.match(/pr[óo]ximo resumen cierra el (\d{2})\/(\d{2})/i);
+    if (closing) nextClosingDay = Number(closing[1]);
+    const due = line.match(/\bvence el (\d{2})\/(\d{2})/i);
+    if (due) nextDueDay = Number(due[1]);
+  }
+
+  return { charges, nextClosingDay, nextDueDay };
+}
+
+export function parseStatement(
+  format: "bna_bancor" | "bbva" | "naranja",
+  lines: string[],
+): ParsedStatement {
+  if (format === "bbva") return parseBbva(lines);
+  if (format === "naranja") return parseNaranja(lines);
+  return parseBnaBancor(lines);
 }

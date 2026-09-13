@@ -28,7 +28,7 @@ export async function uploadStatement(formData: FormData) {
   if (!cardId || !statementMonth || !file || file.size === 0) return;
 
   const { data: card } = await supabase.from("cards").select("*").eq("id", cardId).single();
-  if (!card?.statement_format || card.statement_format === "naranja") return;
+  if (!card?.statement_format) return;
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   let lines: string[];
