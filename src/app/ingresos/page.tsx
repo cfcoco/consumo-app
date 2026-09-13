@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Income } from "@/types/database";
+import { formatDate } from "@/lib/date";
 import { createIncome, deleteIncome } from "./actions";
 
 const money = (n: number) =>
@@ -87,7 +88,7 @@ export default async function IngresosPage() {
             {((incomes as Income[] | null) ?? []).map((income) => (
               <tr key={income.id} className="border-t border-neutral-100">
                 <td className="px-4 py-2 text-neutral-500">
-                  {new Date(income.income_date).toLocaleDateString("es-AR")}
+                  {formatDate(income.income_date)}
                 </td>
                 <td className="px-4 py-2 font-medium">{income.description}</td>
                 <td className="px-4 py-2 text-neutral-500">{income.income_type ?? "—"}</td>

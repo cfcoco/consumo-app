@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Person, Transaction } from "@/types/database";
+import { formatDate } from "@/lib/date";
 import { createPerson, deletePerson, settleTransaction } from "./actions";
 
 const money = (n: number) =>
@@ -87,7 +88,7 @@ export default async function PersonasPage() {
                       <div>
                         <p>{t.description}</p>
                         <p className="text-xs text-neutral-400">
-                          {new Date(t.transaction_date).toLocaleDateString("es-AR")}
+                          {formatDate(t.transaction_date)}
                           {t.installment_number && t.installment_total
                             ? ` · cuota ${t.installment_number}/${t.installment_total}`
                             : ""}
