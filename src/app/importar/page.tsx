@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Card } from "@/types/database";
 import { uploadStatement } from "./actions";
+import { PasswordField } from "./PasswordField";
 
 function currentMonth() {
   const now = new Date();
@@ -71,12 +72,11 @@ export default async function ImportarPage() {
           <label className="text-xs font-medium text-neutral-600">
             Contraseña del PDF (si tiene)
           </label>
-          <input
-            name="password"
-            type="password"
-            placeholder="No se guarda"
-            className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm"
-          />
+          <PasswordField />
+          <p className="text-xs text-neutral-400">
+            Se guarda solo en este navegador (no viaja al repositorio ni a la base de datos) para
+            no tener que escribirla cada vez.
+          </p>
         </div>
 
         <div className="flex flex-col gap-1">
