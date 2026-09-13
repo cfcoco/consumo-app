@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Card, Category, Income, Person, Transaction } from "@/types/database";
+import type { Card, Category, Income, ReceivableCharge, Transaction } from "@/types/database";
 
 const money = (n: number) =>
   n.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 });
@@ -33,7 +33,7 @@ export default async function DashboardPage() {
         .lte("income_date", monthEnd()),
       supabase.from("cards").select("*"),
       supabase.from("categories").select("*"),
-      supabase.from("transactions").select("*").eq("owner_type", "person").eq("is_settled", false),
+      supabase.from("receivable_charges").select("*").eq("status", "pending"),
     ]);
 
   const txs = (transactions as Transaction[] | null) ?? [];
@@ -45,8 +45,8 @@ export default async function DashboardPage() {
     (sum, i) => sum + Number(i.amount),
     0,
   );
-  const totalOwedToMe = ((debts as Transaction[] | null) ?? []).reduce(
-    (sum, t) => sum + Number(t.amount),
+  const totalOwedToMe = ((debts as ReceivableCharge[] | null) ?? []).reduce(
+    (sum, c) => sum + Number(c.amount),
     0,
   );
 

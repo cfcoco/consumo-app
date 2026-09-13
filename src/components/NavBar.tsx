@@ -11,6 +11,8 @@ const LINKS = [
   { href: "/tarjetas", label: "Tarjetas" },
   { href: "/personas", label: "Personas" },
   { href: "/ingresos", label: "Ingresos" },
+  { href: "/importar", label: "Importar" },
+  { href: "/historial", label: "Histórico" },
 ];
 
 export function NavBar() {

@@ -1,6 +1,9 @@
 export type OwnerType = "mine" | "shared" | "person";
 export type TransactionStatus = "projected" | "confirmed";
 export type TransactionSource = "manual" | "import";
+export type StatementFormat = "bna_bancor" | "bbva" | "naranja";
+export type ReceivableStatus = "active" | "settled";
+export type ChargeStatus = "pending" | "collected";
 
 export interface Card {
   id: string;
@@ -10,6 +13,7 @@ export interface Card {
   closing_day: number | null;
   due_day: number | null;
   color: string | null;
+  statement_format: StatementFormat | null;
   created_at: string;
 }
 
@@ -49,6 +53,7 @@ export interface Transaction {
   category_id: string | null;
   person_id: string | null;
   description: string;
+  raw_description: string | null;
   amount: number;
   currency: string;
   transaction_date: string;
@@ -58,7 +63,6 @@ export interface Transaction {
   owner_type: OwnerType;
   status: TransactionStatus;
   source: TransactionSource;
-  is_settled: boolean;
   created_at: string;
 }
 
@@ -70,5 +74,36 @@ export interface Income {
   income_date: string;
   income_type: string | null;
   person_id: string | null;
+  created_at: string;
+}
+
+export interface Receivable {
+  id: string;
+  user_id: string;
+  person_id: string;
+  card_id: string | null;
+  category_id: string | null;
+  source_transaction_id: string | null;
+  description: string;
+  installment_amount: number;
+  total_installments: number;
+  start_month: string;
+  status: ReceivableStatus;
+  settled_at: string | null;
+  created_at: string;
+}
+
+export interface ReceivableCharge {
+  id: string;
+  user_id: string;
+  receivable_id: string;
+  person_id: string;
+  description: string;
+  amount: number;
+  due_month: string;
+  installment_number: number;
+  installment_total: number;
+  status: ChargeStatus;
+  collected_at: string | null;
   created_at: string;
 }

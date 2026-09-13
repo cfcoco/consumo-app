@@ -10,6 +10,7 @@ export async function createCard(formData: FormData) {
   const bank = String(formData.get("bank") ?? "").trim() || null;
   const closingDay = formData.get("closing_day");
   const dueDay = formData.get("due_day");
+  const statementFormat = String(formData.get("statement_format") ?? "") || null;
 
   if (!name) return;
 
@@ -24,6 +25,7 @@ export async function createCard(formData: FormData) {
     bank,
     closing_day: closingDay ? Number(closingDay) : null,
     due_day: dueDay ? Number(dueDay) : null,
+    statement_format: statementFormat,
   });
 
   revalidatePath("/tarjetas");

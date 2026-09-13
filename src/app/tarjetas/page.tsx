@@ -59,6 +59,19 @@ export default async function TarjetasPage() {
             className="w-24 rounded-md border border-neutral-300 px-2 py-1.5 text-sm"
           />
         </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-neutral-600">Formato de resumen</label>
+          <select
+            name="statement_format"
+            defaultValue=""
+            className="w-40 rounded-md border border-neutral-300 px-2 py-1.5 text-sm"
+          >
+            <option value="">Sin definir</option>
+            <option value="bna_bancor">BNA+ / Bancor</option>
+            <option value="bbva">BBVA</option>
+            <option value="naranja">Naranja X</option>
+          </select>
+        </div>
         <button
           type="submit"
           className="rounded-md bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white"
@@ -75,6 +88,7 @@ export default async function TarjetasPage() {
               <th className="px-4 py-2">Banco</th>
               <th className="px-4 py-2">Cierre</th>
               <th className="px-4 py-2">Vencimiento</th>
+              <th className="px-4 py-2">Formato</th>
               <th className="px-4 py-2" />
             </tr>
           </thead>
@@ -85,6 +99,15 @@ export default async function TarjetasPage() {
                 <td className="px-4 py-2 text-neutral-500">{card.bank ?? "—"}</td>
                 <td className="px-4 py-2 text-neutral-500">{card.closing_day ?? "—"}</td>
                 <td className="px-4 py-2 text-neutral-500">{card.due_day ?? "—"}</td>
+                <td className="px-4 py-2 text-neutral-500">
+                  {card.statement_format === "bna_bancor"
+                    ? "BNA+/Bancor"
+                    : card.statement_format === "bbva"
+                      ? "BBVA"
+                      : card.statement_format === "naranja"
+                        ? "Naranja X"
+                        : "—"}
+                </td>
                 <td className="px-4 py-2 text-right">
                   <form action={deleteCard}>
                     <input type="hidden" name="id" value={card.id} />
@@ -97,7 +120,7 @@ export default async function TarjetasPage() {
             ))}
             {!cards?.length && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={6} className="px-4 py-6 text-center text-neutral-400">
                   Todavía no cargaste tarjetas.
                 </td>
               </tr>

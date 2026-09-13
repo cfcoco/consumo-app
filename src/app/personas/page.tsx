@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Person, Transaction } from "@/types/database";
+import type { Person, ReceivableCharge } from "@/types/database";
 import { formatDate } from "@/lib/date";
-import { createPerson, deletePerson, settleTransaction } from "./actions";
+import { createPerson, deletePerson, settleCharge, settleReceivable } from "./actions";
+import { ChargeAmount } from "./ChargeAmount";
 
 const money = (n: number) =>
   n.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 });
@@ -9,22 +10,20 @@ const money = (n: number) =>
 export default async function PersonasPage() {
   const supabase = await createClient();
 
-  const [{ data: people }, { data: debts }] = await Promise.all([
+  const [{ data: people }, { data: charges }] = await Promise.all([
     supabase.from("people").select("*").order("created_at", { ascending: true }),
     supabase
-      .from("transactions")
+      .from("receivable_charges")
       .select("*")
-      .eq("owner_type", "person")
-      .eq("is_settled", false)
-      .order("transaction_date", { ascending: true }),
+      .eq("status", "pending")
+      .order("due_month", { ascending: true }),
   ]);
 
-  const debtsByPerson = new Map<string, Transaction[]>();
-  for (const t of (debts as Transaction[] | null) ?? []) {
-    if (!t.person_id) continue;
-    const list = debtsByPerson.get(t.person_id) ?? [];
-    list.push(t);
-    debtsByPerson.set(t.person_id, list);
+  const chargesByPerson = new Map<string, ReceivableCharge[]>();
+  for (const c of (charges as ReceivableCharge[] | null) ?? []) {
+    const list = chargesByPerson.get(c.person_id) ?? [];
+    list.push(c);
+    chargesByPerson.set(c.person_id, list);
   }
 
   return (
@@ -32,7 +31,9 @@ export default async function PersonasPage() {
       <div>
         <h1 className="text-lg font-semibold">Personas</h1>
         <p className="text-sm text-neutral-500">
-          Familiares o terceros a quienes les prestás la tarjeta o compartís un gasto. Acá ves cuánto te debe cada uno.
+          Familiares o terceros a quienes les prestás la tarjeta o compartís un gasto. Acá ves
+          cuánto te debe cada uno, con su propio plan de cuotas (puede ser distinto al de la
+          tarjeta).
         </p>
       </div>
 
@@ -59,8 +60,15 @@ export default async function PersonasPage() {
 
       <div className="space-y-4">
         {(people as Person[] | null)?.map((person) => {
-          const items = debtsByPerson.get(person.id) ?? [];
-          const total = items.reduce((sum, t) => sum + Number(t.amount), 0);
+          const items = chargesByPerson.get(person.id) ?? [];
+          const total = items.reduce((sum, c) => sum + Number(c.amount), 0);
+
+          const byReceivable = new Map<string, ReceivableCharge[]>();
+          for (const c of items) {
+            const list = byReceivable.get(c.receivable_id) ?? [];
+            list.push(c);
+            byReceivable.set(c.receivable_id, list);
+          }
 
           return (
             <div key={person.id} className="rounded-lg border border-neutral-200 bg-white">
@@ -68,11 +76,18 @@ export default async function PersonasPage() {
                 <div>
                   <p className="font-medium">{person.name}</p>
                   <p className="text-xs text-neutral-500">
-                    {items.length} pendiente{items.length !== 1 ? "s" : ""}
+                    {items.length} cuota{items.length !== 1 ? "s" : ""} pendiente
+                    {items.length !== 1 ? "s" : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-semibold">{money(total)}</span>
+                  <a
+                    href={`/api/personas/${person.id}/pdf`}
+                    className="text-xs font-medium text-neutral-500 hover:underline"
+                  >
+                    Exportar PDF
+                  </a>
                   <form action={deletePerson}>
                     <input type="hidden" name="id" value={person.id} />
                     <button className="text-xs font-medium text-red-600 hover:underline">
@@ -81,32 +96,42 @@ export default async function PersonasPage() {
                   </form>
                 </div>
               </div>
-              {items.length > 0 && (
-                <ul className="divide-y divide-neutral-100">
-                  {items.map((t) => (
-                    <li key={t.id} className="flex items-center justify-between px-4 py-2 text-sm">
-                      <div>
-                        <p>{t.description}</p>
-                        <p className="text-xs text-neutral-400">
-                          {formatDate(t.transaction_date)}
-                          {t.installment_number && t.installment_total
-                            ? ` · cuota ${t.installment_number}/${t.installment_total}`
-                            : ""}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span>{money(Number(t.amount))}</span>
-                        <form action={settleTransaction}>
-                          <input type="hidden" name="id" value={t.id} />
-                          <button className="text-xs font-medium text-neutral-500 hover:underline">
-                            Marcar cobrado
-                          </button>
-                        </form>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {Array.from(byReceivable.entries()).map(([receivableId, receivableCharges]) => (
+                <div key={receivableId} className="border-b border-neutral-100 last:border-b-0">
+                  <div className="flex items-center justify-between bg-neutral-50 px-4 py-1.5">
+                    <p className="text-xs font-medium text-neutral-500">
+                      {receivableCharges[0].description}
+                    </p>
+                    <form action={settleReceivable}>
+                      <input type="hidden" name="receivable_id" value={receivableId} />
+                      <button className="text-xs font-medium text-emerald-700 hover:underline">
+                        Marcar todo cobrado (canceló antes)
+                      </button>
+                    </form>
+                  </div>
+                  <ul className="divide-y divide-neutral-100">
+                    {receivableCharges.map((c) => (
+                      <li key={c.id} className="flex items-center justify-between px-4 py-2 text-sm">
+                        <div>
+                          <p>
+                            Cuota {c.installment_number}/{c.installment_total}
+                          </p>
+                          <p className="text-xs text-neutral-400">{formatDate(c.due_month)}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <ChargeAmount id={c.id} amount={Number(c.amount)} />
+                          <form action={settleCharge}>
+                            <input type="hidden" name="id" value={c.id} />
+                            <button className="text-xs font-medium text-neutral-500 hover:underline">
+                              Marcar cobrado
+                            </button>
+                          </form>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           );
         })}
